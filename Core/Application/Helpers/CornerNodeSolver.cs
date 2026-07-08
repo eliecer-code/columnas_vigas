@@ -101,19 +101,13 @@ public static class CornerNodeSolver
         // 1. Determinar el muro principal (el más grueso o el más largo en caso de empate)
         node.PrimaryWall = node.ConnectedWalls.OrderByDescending(w => w.Thickness).ThenByDescending(w => (w.Wall.Location as LocationCurve).Curve.Length).First();
         
-        // 2. Obtener dimensiones de la columneta
         double w = 0.30 / 0.3048; 
-        Parameter bParam = columnType.LookupParameter("b");
-        if (bParam != null) w = bParam.AsDouble();
-        else
+        BoundingBoxXYZ bb = columnType.get_BoundingBox(null);
+        if (bb != null)
         {
-            Parameter hParam = columnType.LookupParameter("h");
-            if (hParam != null) w = hParam.AsDouble();
-            else
-            {
-                BoundingBoxXYZ bb = columnType.get_BoundingBox(null);
-                if (bb != null) w = bb.Max.X - bb.Min.X;
-            }
+            double sizeX = bb.Max.X - bb.Min.X;
+            double sizeY = bb.Max.Y - bb.Min.Y;
+            w = Math.Max(sizeX, sizeY); // El lado longitudinal es el mayor
         }
         double t = node.PrimaryWall.Thickness; // Espesor SIEMPRE igual al muro principal
 
@@ -121,8 +115,7 @@ public static class CornerNodeSolver
         XYZ localX = node.PrimaryWall.InwardDir;
         XYZ localY = XYZ.BasisZ.CrossProduct(localX).Normalize();
 
-        node.RotationAngle = XYZ.BasisX.AngleTo(localX);
-        if (localX.Y < 0) node.RotationAngle = -node.RotationAngle;
+        node.RotationAngle = WallConfinementCalculator.GetColumnetaRotationAngle(localX, columnType);
 
         // 4. Analizar la topología para determinar X_min y X_max del BoundingBox local
         bool hasOppositeWall = false;

@@ -138,7 +138,10 @@ public static class WallConfinementCalculator
         BoundingBoxXYZ bb = columnType.get_BoundingBox(null);
         if (bb != null)
         {
-            colTransversal = bb.Max.Y - bb.Min.Y;
+            double sizeX = bb.Max.X - bb.Min.X;
+            double sizeY = bb.Max.Y - bb.Min.Y;
+            // El lado transversal será el menor de los dos, asumiendo que el mayor se alineó con el muro
+            colTransversal = Math.Min(sizeX, sizeY);
         }
 
         XYZ normal = XYZ.BasisZ.CrossProduct(wallDir).Normalize();
@@ -148,5 +151,56 @@ public static class WallConfinementCalculator
         double offsetDist = (wallThickness - colTransversal) / 2.0;
         
         return extDir * offsetDist;
+    }
+
+    /// <summary>
+    /// Calcula el ángulo de rotación para que la columneta quede alineada con el muro.
+    /// Garantiza que el lado más largo de la familia siempre quede paralelo al muro,
+    /// evitando que atraviese el espesor.
+    /// </summary>
+    public static double GetColumnetaRotationAngle(XYZ wallDir, FamilySymbol columnType)
+    {
+        double angle = XYZ.BasisX.AngleTo(wallDir);
+        if (wallDir.Y < 0) angle = -angle;
+
+        BoundingBoxXYZ bb = columnType.get_BoundingBox(null);
+        if (bb != null)
+        {
+            double sizeX = bb.Max.X - bb.Min.X;
+            double sizeY = bb.Max.Y - bb.Min.Y;
+
+            if (sizeY > sizeX + 0.01)
+            {
+                angle += Math.PI / 2.0;
+            }
+        }
+
+        return angle;
+    }
+
+    /// <summary>
+    /// Configura los parámetros de altura de la columneta para que coincidan exactamente con las restricciones del muro.
+    /// </summary>
+    public static void ApplyColumnetaConstraints(FamilyInstance col, Wall wall)
+    {
+        ElementId baseLevelId = wall.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT).AsElementId();
+        ElementId topLevelId = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE).AsElementId();
+        double baseOffset = wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).AsDouble();
+        double topOffset = wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET).AsDouble();
+
+        col.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM)?.Set(baseLevelId);
+        col.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM)?.Set(baseOffset);
+
+        if (topLevelId != ElementId.InvalidElementId)
+        {
+            col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM)?.Set(topLevelId);
+            col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM)?.Set(topOffset);
+        }
+        else
+        {
+            double unconnectedHeight = wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM).AsDouble();
+            col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM)?.Set(baseLevelId);
+            col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM)?.Set(baseOffset + unconnectedHeight);
+        }
     }
 }

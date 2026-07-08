@@ -270,36 +270,11 @@ public class ElementGenerationService : IElementGenerationService
                         LogStep(currentStep);
                         FamilyInstance col = doc.Create.NewFamilyInstance(originInsertionPoint, columnType, baseLevel, Autodesk.Revit.DB.Structure.StructuralType.Column);
                         
-                        double targetZMax = zMax - topBeamHeight;
-                        col.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM)?.Set(baseLevel.Id);
-                        col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM)?.Set(baseLevel.Id);
-                        col.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM)?.Set(zMin - baseLevel.Elevation);
-                        col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM)?.Set(targetZMax - baseLevel.Elevation);
+                        WallConfinementCalculator.ApplyColumnetaConstraints(col, primaryWallBase);
                         
                         currentStep = $"Regeneración del documento 1 columneta en nodo {colIndex}";
                         LogStep(currentStep);
                         doc.Regenerate();
-                        
-                        currentStep = $"Compensación Z columneta en nodo {colIndex}";
-                        var bounds = RealGeometryHelper.GetSolidBounds(col, doc);
-                        if (bounds.IsValid)
-                        {
-                            double baseError = zMin - bounds.MinZ;
-                            double topError = bounds.MaxZ - targetZMax;
-
-                            if (Math.Abs(baseError) > 0.001 || Math.Abs(topError) > 0.001)
-                            {
-                                Parameter baseOffsetParam = col.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM);
-                                Parameter topOffsetParam = col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
-
-                                if (baseOffsetParam != null && topOffsetParam != null)
-                                {
-                                    baseOffsetParam.Set(baseOffsetParam.AsDouble() + baseError);
-                                    topOffsetParam.Set(topOffsetParam.AsDouble() - topError);
-                                }
-                                doc.Regenerate();
-                            }
-                        }
 
                         currentStep = $"Alineación geométrica y rotación columneta en nodo {colIndex}";
                         LogStep(currentStep);
@@ -380,8 +355,9 @@ public class ElementGenerationService : IElementGenerationService
                         XYZ dir = (p1 - p0).Normalize();
                         
                         var (zMin, zMax, baseLevel) = WallGeometryHelper.GetWallElevationInfo(doc, wall);
-                        double angle = XYZ.BasisX.AngleTo(dir);
-                        if (dir.Y < 0) angle = -angle;
+                        
+                        // Utilizamos la misma lógica de orientación que las columnetas de esquina
+                        double angle = WallConfinementCalculator.GetColumnetaRotationAngle(dir, columnType);
                         
                         XYZ localOriginOffset = WallConfinementCalculator.GetFamilyOriginOffset(columnType);
                         XYZ rotatedLocalOffset = Transform.CreateRotation(XYZ.BasisZ, angle).OfVector(localOriginOffset);
@@ -402,11 +378,8 @@ public class ElementGenerationService : IElementGenerationService
                                 XYZ originInsertionPoint = targetCenter - rotatedLocalOffset;
                                 FamilyInstance col = doc.Create.NewFamilyInstance(originInsertionPoint, columnType, baseLevel, Autodesk.Revit.DB.Structure.StructuralType.Column);
                                 
-                                double targetZMax = zMax - topBeamHeight;
-                                col.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM)?.Set(baseLevel.Id);
-                                col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM)?.Set(baseLevel.Id);
-                                col.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM)?.Set(zMin - baseLevel.Elevation);
-                                col.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM)?.Set(targetZMax - baseLevel.Elevation);
+                                // Aplicamos la misma lógica de restricciones (altura) que las columnetas de esquina
+                                WallConfinementCalculator.ApplyColumnetaConstraints(col, wall);
                                 
                                 doc.Regenerate();
                                 
@@ -440,13 +413,20 @@ public class ElementGenerationService : IElementGenerationService
 
                             currentStep = $"Creación de la vigueta superior para muro {wall.Id}";
                             LogStep(currentStep);
-                            XYZ ptTop0 = new XYZ(startPt.X, startPt.Y, zMax);
-                            XYZ ptTop1 = new XYZ(endPt.X, endPt.Y, zMax);
+                            
+                            ElementId topLevelId = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE).AsElementId();
+                            Level topLevel = topLevelId != ElementId.InvalidElementId ? doc.GetElement(topLevelId) as Level : null;
+                            Level refLevel = topLevel ?? baseLevel;
+
+                            double zOffset = (topLevel != null) ? wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET).AsDouble() : wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).AsDouble() + wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM).AsDouble();
+                            
+                            XYZ ptTop0 = new XYZ(startPt.X, startPt.Y, refLevel.Elevation);
+                            XYZ ptTop1 = new XYZ(endPt.X, endPt.Y, refLevel.Elevation);
                             Line topBeamLine = Line.CreateBound(ptTop0, ptTop1);
 
-                            FamilyInstance topFraming = doc.Create.NewFamilyInstance(topBeamLine, framingType, baseLevel, Autodesk.Revit.DB.Structure.StructuralType.Beam);
+                            FamilyInstance topFraming = doc.Create.NewFamilyInstance(topBeamLine, framingType, refLevel, Autodesk.Revit.DB.Structure.StructuralType.Beam);
                             
-                            topFraming.get_Parameter(BuiltInParameter.Z_OFFSET_VALUE)?.Set(0.0);
+                            topFraming.get_Parameter(BuiltInParameter.Z_OFFSET_VALUE)?.Set(zOffset);
                             topFraming.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION)?.Set(0.0);
                             topFraming.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION)?.Set(0.0);
                             topFraming.get_Parameter(BuiltInParameter.Y_JUSTIFICATION)?.Set(1); 
