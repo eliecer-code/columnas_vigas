@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>CQIng.Revit.ColumnasVigasMuros</AssemblyName>
+    <RootNamespace>CQIng.Revit.ColumnasVigasMuros</RootNamespace>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RevitInstallDir Condition="'$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2026</RevitInstallDir>
+    <RevitAddinsDir>$(AppData)\Autodesk\Revit\Addins\2026</RevitAddinsDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitInstallDir)\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\Logo_Muros.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Logo_Muros_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Update=".env">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="HelixToolkit.Wpf" Version="2.24.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.10" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+  <Target Name="GenerateAddinManifest" AfterTargets="Build">
+    <MakeDir Directories="$(RevitAddinsDir)" />
+    <WriteLinesToFile File="$(RevitAddinsDir)\CQIng.Revit.ColumnasVigasMuros.addin" Overwrite="true" Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;%0A&lt;RevitAddIns&gt;%0A  &lt;AddIn Type=&quot;Application&quot;&gt;%0A    &lt;Name&gt;CQIng.Revit.ColumnasVigasMuros&lt;/Name&gt;%0A    &lt;Assembly&gt;$(TargetPath)&lt;/Assembly&gt;%0A    &lt;AddInId&gt;B9E68F55-13BA-4AC5-A8F4-071E568E1BC8&lt;/AddInId&gt;%0A    &lt;FullClassName&gt;CQIng.Revit.ColumnasVigasMuros.App.RevitApplication&lt;/FullClassName&gt;%0A    &lt;VendorId&gt;CQING&lt;/VendorId&gt;%0A    &lt;VendorDescription&gt;CQ ING S.A.S&lt;/VendorDescription&gt;%0A  &lt;/AddIn&gt;%0A&lt;/RevitAddIns&gt;" />
+  </Target>
+</Project>

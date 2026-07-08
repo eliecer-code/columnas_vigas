@@ -1,0 +1,61 @@
+<Window x:Class="CQIng.Revit.ColumnasVigasMuros.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:helix="http://helix-toolkit.org/wpf"
+        xmlns:viewmodels="clr-namespace:CQIng.Revit.ColumnasVigasMuros.UI.ViewModels"
+        mc:Ignorable="d"
+        Title="Columnetas y Viguetas" Height="600" Width="800"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True">
+    <Window.Resources>
+        <utils:InverseBooleanConverter x:Key="InverseBooleanConverter" xmlns:utils="clr-namespace:CQIng.Revit.ColumnasVigasMuros.UI.Utils" />
+    </Window.Resources>
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="350"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+            <Button Content="Seleccionar Muros" 
+                    Command="{Binding SelectWallsCommand}" 
+                    Height="35" Margin="0,0,0,10"
+                    Background="#007ACC" Foreground="White" FontWeight="Bold" />
+
+            <TextBlock Text="Muros Seleccionados:" FontWeight="Bold" Margin="0,0,0,5"/>
+            <DataGrid ItemsSource="{Binding SelectedWalls}" 
+                      AutoGenerateColumns="False" 
+                      IsReadOnly="True"
+                      Height="150" Margin="0,0,0,15">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="80"/>
+                    <DataGridTextColumn Header="Nivel" Binding="{Binding NivelMuro}" Width="100"/>
+                    <DataGridTextColumn Header="Tipo" Binding="{Binding NombreTipo}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock Text="Tipo de Columneta (Pilar Estructural):" FontWeight="Bold" Margin="0,0,0,5"/>
+            <ComboBox ItemsSource="{Binding ColumnTypes}" 
+                      SelectedItem="{Binding SelectedColumnType}" 
+                      Margin="0,0,0,15" Height="25"/>
+
+            <TextBlock Text="Tipo de Vigueta (Armazón Estructural):" FontWeight="Bold" Margin="0,0,0,5"/>
+            <ComboBox ItemsSource="{Binding FramingTypes}" 
+                      SelectedItem="{Binding SelectedFramingType}" 
+                      Margin="0,0,0,25" Height="25"/>
+
+            <Button Content="Generar Columnetas y Viguetas" 
+                    Command="{Binding GenerateCommand}" 
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}"
+                    Height="40" Background="#28A745" Foreground="White" FontWeight="Bold"/>
+        </StackPanel>
+
+        <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1">
+            <helix:HelixViewport3D ZoomExtentsWhenLoaded="True" ShowCoordinateSystem="True">
+                <ModelVisual3D Content="{Binding ModelGroup}" />
+            </helix:HelixViewport3D>
+        </Border>
+    </Grid>
+</Window>
