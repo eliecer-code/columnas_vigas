@@ -127,8 +127,10 @@ public static class WallConfinementCalculator
     }
 
     /// <summary>
-    /// Calcula el desplazamiento transversal necesario para enrasar la columneta con la cara exterior del muro.
-    /// Considera el espesor real de la familia, el espesor del muro y si el muro está invertido (Flipped).
+    /// Calcula el desplazamiento transversal para posicionar la columneta respecto al eje del muro.
+    /// - col espesor == muro: offset 0 (centrado, sin movimiento).
+    /// - col espesor &lt; muro: mueve hacia la cara exterior para enrasar con ella.
+    /// - col espesor &gt; muro: offset 0 (centrada en el eje; el exceso sobresale simétricamente a ambos lados).
     /// </summary>
     public static XYZ CalculateTransversalAlignmentOffset(Wall wall, FamilySymbol columnType, XYZ wallDir)
     {
@@ -140,15 +142,15 @@ public static class WallConfinementCalculator
         {
             double sizeX = bb.Max.X - bb.Min.X;
             double sizeY = bb.Max.Y - bb.Min.Y;
-            // El lado transversal será el menor de los dos, asumiendo que el mayor se alineó con el muro
             colTransversal = Math.Min(sizeX, sizeY);
         }
 
         XYZ normal = XYZ.BasisZ.CrossProduct(wallDir).Normalize();
-
         XYZ extDir = wall.Flipped ? -normal : normal;
 
-        double offsetDist = (wallThickness - colTransversal) / 2.0;
+        // Si la columneta es más gruesa, el eje del muro ya es su centro exacto: offset = 0.
+        // Si es más delgada, mueve hacia exterior para enrasar la cara exterior.
+        double offsetDist = Math.Max(0.0, (wallThickness - colTransversal) / 2.0);
         
         return extDir * offsetDist;
     }
