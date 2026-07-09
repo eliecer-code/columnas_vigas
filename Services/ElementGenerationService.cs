@@ -400,11 +400,34 @@ public class ElementGenerationService : IElementGenerationService
 
                     if (baseFramingType != null)
                     {
+                        // Construir mapa: wallId -> (ptEnd0, ptEnd1) usando los nodos de esquina.
+                        // node.Point es el vértice real de la esquina (pre-recorte, pre-columneta).
+                        // Un nodo con 2+ muros es una esquina real => extender la vigueta hasta ese punto.
+                        var cornerPointByWallEnd = new Dictionary<ElementId, (XYZ pt0, XYZ pt1)>();
                         foreach (var wall in processedWalls)
                         {
-                            Curve curve = originalCurves[wall.Id];
-                            XYZ startPt = curve.GetEndPoint(0);
-                            XYZ endPt = curve.GetEndPoint(1);
+                            Curve origCurve = originalCurves[wall.Id];
+                            cornerPointByWallEnd[wall.Id] = (origCurve.GetEndPoint(0), origCurve.GetEndPoint(1));
+                        }
+                        // Sobreescribir con el punto exacto del nodo de esquina cuando existan ≥2 muros
+                        foreach (var node in nodes)
+                        {
+                            if (node.ConnectedWalls.Count < 2) continue; // nodo libre, no esquina
+                            foreach (var nw in node.ConnectedWalls)
+                            {
+                                if (!cornerPointByWallEnd.ContainsKey(nw.Wall.Id)) continue;
+                                var (p0, p1) = cornerPointByWallEnd[nw.Wall.Id];
+                                if (nw.IsStart) p0 = node.Point;
+                                else            p1 = node.Point;
+                                cornerPointByWallEnd[nw.Wall.Id] = (p0, p1);
+                            }
+                        }
+
+                        foreach (var wall in processedWalls)
+                        {
+                            var (cornerPt0, cornerPt1) = cornerPointByWallEnd[wall.Id];
+                            XYZ startPt = cornerPt0;
+                            XYZ endPt = cornerPt1;
                             
                             var (zMin, zMax, baseLevel) = WallGeometryHelper.GetWallElevationInfo(doc, wall);
                             double wallThickness = wall.Width;
@@ -436,6 +459,7 @@ public class ElementGenerationService : IElementGenerationService
 
                             currentStep = $"Creación de la vigueta inferior para muro {wall.Id}";
                             LogStep(currentStep);
+                            
                             XYZ ptBot0 = new XYZ(startPt.X, startPt.Y, zMin);
                             XYZ ptBot1 = new XYZ(endPt.X, endPt.Y, zMin);
                             Line botBeamLine = Line.CreateBound(ptBot0, ptBot1);
