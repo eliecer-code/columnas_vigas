@@ -102,14 +102,19 @@ public static class CornerNodeSolver
         node.PrimaryWall = node.ConnectedWalls.OrderByDescending(w => w.Thickness).ThenByDescending(w => (w.Wall.Location as LocationCurve).Curve.Length).First();
         
         double w = 0.30 / 0.3048; 
+        double colTransversal = 0; // Espesor transversal real de la columneta
         BoundingBoxXYZ bb = columnType.get_BoundingBox(null);
         if (bb != null)
         {
             double sizeX = bb.Max.X - bb.Min.X;
             double sizeY = bb.Max.Y - bb.Min.Y;
             w = Math.Max(sizeX, sizeY); // El lado longitudinal es el mayor
+            colTransversal = Math.Min(sizeX, sizeY); // El lado transversal es el menor
         }
-        double t = node.PrimaryWall.Thickness; // Espesor SIEMPRE igual al muro principal
+        double t = node.PrimaryWall.Thickness;
+        // Extensión transversal efectiva: si la columneta es más gruesa que el muro,
+        // usar su espesor real para que las esquinas se alineen con los tramos.
+        double tEffective = Math.Max(t, colTransversal);
 
         // 3. Ejes locales de la columneta
         XYZ localX = node.PrimaryWall.InwardDir;
@@ -176,7 +181,7 @@ public static class CornerNodeSolver
             }
             else // Muros perpendiculares (dotY > 0.9 o dotY < -0.9)
             {
-                cutLength = t / 2.0;
+                cutLength = tEffective / 2.0;
             }
 
             node.WallCutLengths[nw.Wall.Id] = cutLength;
