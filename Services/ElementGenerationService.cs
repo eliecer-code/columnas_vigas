@@ -112,6 +112,43 @@ public class ElementGenerationService : IElementGenerationService
                     }
                 }
 
+                // Advertencia si la columneta es más gruesa que alguno de los muros seleccionados.
+                // Reutiliza la misma lógica de Min(sizeX, sizeY) que CalculateTransversalAlignmentOffset.
+                currentStep = "Validación de espesor de columneta vs muro.";
+                LogStep(currentStep);
+                {
+                    bool columnataEsMasGruesa = false;
+                    BoundingBoxXYZ bbCol = baseColumnType.get_BoundingBox(null);
+                    if (bbCol != null)
+                    {
+                        double colTransversal = Math.Min(bbCol.Max.X - bbCol.Min.X, bbCol.Max.Y - bbCol.Min.Y);
+                        foreach (var wModel in selectedWalls)
+                        {
+                            Wall w = doc.GetElement(new ElementId(wModel.Id)) as Wall;
+                            if (w != null && colTransversal > w.Width + 0.001)
+                            {
+                                columnataEsMasGruesa = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (columnataEsMasGruesa)
+                    {
+                        TaskDialog dialog = new TaskDialog("Columnetas más gruesas que el muro");
+                        dialog.MainInstruction = "Aviso de espesor";
+                        dialog.MainContent = "Las columnetas seleccionadas tienen un espesor mayor que el espesor de los muros.\n\nEsto hará que sobresalgan del muro de forma simétrica.\n\n¿Desea continuar?";
+                        dialog.CommonButtons = TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No;
+                        dialog.DefaultButton = TaskDialogResult.No;
+
+                        if (dialog.Show() != TaskDialogResult.Yes)
+                        {
+                            transGroup.RollBack();
+                            return;
+                        }
+                    }
+                }
+
                 currentStep = "Inicio de Transaction.";
                 LogStep(currentStep);
                 using (Transaction t = new Transaction(doc, "Generar Elementos Estructurales"))
@@ -168,6 +205,20 @@ public class ElementGenerationService : IElementGenerationService
                         }
                         return false;
                     }
+
+                    // Espesor transversal original del símbolo de columneta (se calcula una sola vez).
+                    // Misma lógica que CalculateTransversalAlignmentOffset: Min(sizeX, sizeY).
+                    BoundingBoxXYZ bbBaseCol = baseColumnType.get_BoundingBox(null);
+                    double baseColTransversal = bbBaseCol != null
+                        ? Math.Min(bbBaseCol.Max.X - bbBaseCol.Min.X, bbBaseCol.Max.Y - bbBaseCol.Min.Y)
+                        : 0;
+
+                    // Función local: devuelve el símbolo de columneta adecuado.
+                    // Si la columneta ya es más gruesa que el muro, no se fuerza su espesor.
+                    FamilySymbol GetColumnType(double wallThick) =>
+                        baseColTransversal > wallThick + 0.001
+                            ? baseColumnType
+                            : FamilySymbolHelper.GetOrDuplicateSymbolWithWidth(doc, baseColumnType, wallThick);
 
                     foreach (var wModel in selectedWalls)
                     {
@@ -286,11 +337,7 @@ public class ElementGenerationService : IElementGenerationService
                             continue;
 
                         double wallThickness = primaryWallBase.Width;
-                        FamilySymbol columnType = FamilySymbolHelper.GetOrDuplicateSymbolWithWidth(
-                            doc,
-                            baseColumnType,
-                            wallThickness
-                        );
+                        FamilySymbol columnType = GetColumnType(wallThickness);
 
                         currentStep = $"1. Resolviendo geometría del nodo {colIndex}";
                         LogStep(currentStep);
@@ -449,11 +496,7 @@ public class ElementGenerationService : IElementGenerationService
                             continue;
 
                         double wallThickness = wall.Width;
-                        FamilySymbol columnType = FamilySymbolHelper.GetOrDuplicateSymbolWithWidth(
-                            doc,
-                            baseColumnType,
-                            wallThickness
-                        );
+                        FamilySymbol columnType = GetColumnType(wallThickness);
 
                         var (colWidth, colThickness) =
                             WallConfinementCalculator.GetColumnetaDimensions(columnType, wall);
