@@ -28,10 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Resources\Logo_Muros.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\Logo_Muros_32.png">
+    <Content Include="Resources\**\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Update=".env">
@@ -53,6 +50,7 @@
   </ItemGroup>
   <Target Name="GenerateAddinManifest" AfterTargets="Build">
     <MakeDir Directories="$(RevitAddinsDir)" />
-    <WriteLinesToFile File="$(RevitAddinsDir)\CQIng.Revit.ColumnasVigasMuros.addin" Overwrite="true" Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;%0A&lt;RevitAddIns&gt;%0A  &lt;AddIn Type=&quot;Application&quot;&gt;%0A    &lt;Name&gt;CQIng.Revit.ColumnasVigasMuros&lt;/Name&gt;%0A    &lt;Assembly&gt;$(TargetPath)&lt;/Assembly&gt;%0A    &lt;AddInId&gt;B9E68F55-13BA-4AC5-A8F4-071E568E1BC8&lt;/AddInId&gt;%0A    &lt;FullClassName&gt;CQIng.Revit.ColumnasVigasMuros.App.RevitApplication&lt;/FullClassName&gt;%0A    &lt;VendorId&gt;CQING&lt;/VendorId&gt;%0A    &lt;VendorDescription&gt;CQ ING S.A.S&lt;/VendorDescription&gt;%0A  &lt;/AddIn&gt;%0A&lt;/RevitAddIns&gt;" />
+    <WriteLinesToFile File="$(RevitAddinsDir)\CQIng.Revit.ColumnasVigasMuros.addin" Overwrite="true"
+      Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;%0A&lt;RevitAddIns&gt;%0A  &lt;AddIn Type=&quot;Application&quot;&gt;%0A    &lt;Name&gt;CQIng.Revit.ColumnasVigasMuros&lt;/Name&gt;%0A    &lt;Assembly&gt;$(TargetPath)&lt;/Assembly&gt;%0A    &lt;AddInId&gt;B9E68F55-13BA-4AC5-A8F4-071E568E1BC8&lt;/AddInId&gt;%0A    &lt;FullClassName&gt;CQIng.Revit.ColumnasVigasMuros.App.RevitApplication&lt;/FullClassName&gt;%0A    &lt;VendorId&gt;CQING&lt;/VendorId&gt;%0A    &lt;VendorDescription&gt;CQ ING S.A.S&lt;/VendorDescription&gt;%0A  &lt;/AddIn&gt;%0A&lt;/RevitAddIns&gt;" />
   </Target>
 </Project>

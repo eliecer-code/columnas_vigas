@@ -7,8 +7,7 @@
         xmlns:viewmodels="clr-namespace:CQIng.Revit.ColumnasVigasMuros.UI.ViewModels"
         mc:Ignorable="d"
         Title="Columnetas y Viguetas" Height="600" Width="800"
-        WindowStartupLocation="CenterScreen"
-        Topmost="True">
+        WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <utils:InverseBooleanConverter x:Key="InverseBooleanConverter" xmlns:utils="clr-namespace:CQIng.Revit.ColumnasVigasMuros.UI.Utils" />
     </Window.Resources>

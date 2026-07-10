@@ -28,6 +28,11 @@ public sealed class OpenCommand : IExternalCommand
         if (AppServiceProvider.ServiceProvider is not null)
         {
             var mainWindow = AppServiceProvider.ServiceProvider.GetRequiredService<MainWindow>();
+            
+            // Establecer la ventana principal de Revit como propietaria
+            System.Windows.Interop.WindowInteropHelper helper = new System.Windows.Interop.WindowInteropHelper(mainWindow);
+            helper.Owner = uiApplication.MainWindowHandle;
+            
             mainWindow.Show();
         }
 

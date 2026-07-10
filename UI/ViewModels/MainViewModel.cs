@@ -47,7 +47,8 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel(
         IRevitDataExtractionService dataExtractionService,
         IRevitSelectionService selectionService,
-        IElementGenerationService generationService)
+        IElementGenerationService generationService
+    )
     {
         _dataExtractionService = dataExtractionService;
         _selectionService = selectionService;
@@ -62,7 +63,7 @@ public partial class MainViewModel : ObservableObject
         RevitEventExecutor.Execute(app =>
         {
             var doc = app.ActiveUIDocument.Document;
-            
+
             var columns = _dataExtractionService.GetStructuralColumnTypes(doc);
             var framings = _dataExtractionService.GetStructuralFramingTypes(doc);
 
@@ -85,7 +86,7 @@ public partial class MainViewModel : ObservableObject
             try
             {
                 var walls = _selectionService.PromptWallSelection(app);
-                
+
                 var newModelGroup = new Model3DGroup();
                 var doc = app.ActiveUIDocument.Document;
 
@@ -114,7 +115,12 @@ public partial class MainViewModel : ObservableObject
             {
                 _dispatcher.Invoke(() =>
                 {
-                    MessageBox.Show($"Error seleccionando muros: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(
+                        $"Error seleccionando muros: {ex.Message}",
+                        "Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error
+                    );
                 });
             }
         });
@@ -125,13 +131,23 @@ public partial class MainViewModel : ObservableObject
     {
         if (!SelectedWalls.Any())
         {
-            MessageBox.Show("Debes seleccionar muros primero.", "Advertencia", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(
+                "Debes seleccionar muros primero.",
+                "Advertencia",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning
+            );
             return;
         }
 
         if (SelectedColumnType == null || SelectedFramingType == null)
         {
-            MessageBox.Show("Debes seleccionar tipos válidos.", "Advertencia", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(
+                "Debes seleccionar tipos válidos.",
+                "Advertencia",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning
+            );
             return;
         }
 
@@ -145,11 +161,17 @@ public partial class MainViewModel : ObservableObject
                     app,
                     SelectedWalls.ToList(),
                     SelectedColumnType.Id,
-                    SelectedFramingType.Id);
+                    SelectedFramingType.Id
+                );
 
                 _dispatcher.Invoke(() =>
                 {
-                    MessageBox.Show("Columnetas y viguetas generadas correctamente.", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(
+                        "Columnetas y viguetas generadas correctamente.",
+                        "Éxito",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information
+                    );
                     IsBusy = false;
                 });
             }
@@ -157,7 +179,12 @@ public partial class MainViewModel : ObservableObject
             {
                 _dispatcher.Invoke(() =>
                 {
-                    MessageBox.Show($"Error generando elementos: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(
+                        $"Error generando elementos: {ex.Message}",
+                        "Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error
+                    );
                     IsBusy = false;
                 });
             }

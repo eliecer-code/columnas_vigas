@@ -12,7 +12,16 @@ public sealed class RevitApplication : IExternalApplication
     public Result OnStartup(UIControlledApplication application)
     {
         RevitEventExecutor.Initialize();
-        CreateRibbon(application);
+        try
+        {
+            // Crea los elementos de la interfaz de usuario en la cinta de opciones de Revit
+            CreateRibbon(application);
+        }
+        catch (Exception ex)
+        {
+            Autodesk.Revit.UI.TaskDialog.Show("Error on Startup", ex.ToString());
+        }
+
         return Result.Succeeded;
     }
 
@@ -45,21 +54,32 @@ public sealed class RevitApplication : IExternalApplication
             ToolTip = "Abre el generador de columnetas y viguetas en muros.",
         };
 
-        string assemblyDir = System.IO.Path.GetDirectoryName(thisAssemblyPath) ?? AppContext.BaseDirectory;
-        string largeImagePath = System.IO.Path.Combine(assemblyDir, "Resources", "Logo_Muros.png");
-        string smallImagePath = System.IO.Path.Combine(assemblyDir, "Resources", "Logo_Muros_32.png");
+        string assemblyDir =
+            System.IO.Path.GetDirectoryName(thisAssemblyPath) ?? AppContext.BaseDirectory;
+        string smallImagePath = System.IO.Path.Combine(
+            assemblyDir,
+            "Resources",
+            "Icons",
+            "Logo_Muros_16.png"
+        );
+        string largeImagePath = System.IO.Path.Combine(
+            assemblyDir,
+            "Resources",
+            "Icons",
+            "Logo_Muros_32.png"
+        );
 
         if (System.IO.File.Exists(largeImagePath))
         {
             BitmapImage largeImage = new BitmapImage(new Uri(largeImagePath));
-            largeImage.Freeze(); 
+            largeImage.Freeze();
             buttonData.LargeImage = largeImage;
         }
 
         if (System.IO.File.Exists(smallImagePath))
         {
             BitmapImage smallImage = new BitmapImage(new Uri(smallImagePath));
-            smallImage.Freeze(); 
+            smallImage.Freeze();
             buttonData.Image = smallImage;
         }
 
@@ -101,9 +121,6 @@ public sealed class RevitApplication : IExternalApplication
         {
             application.CreateRibbonTab(tabName);
         }
-        catch (Autodesk.Revit.Exceptions.ArgumentException)
-        {
-            
-        }
+        catch (Autodesk.Revit.Exceptions.ArgumentException) { }
     }
 }
