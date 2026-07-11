@@ -11,6 +11,7 @@ public class NodeWall
     public bool IsStart { get; set; }
     public XYZ InwardDir { get; set; }
     public double Thickness => Wall.Width;
+    public bool IsContinuous { get; set; }
 }
 
 public class CornerNode
@@ -22,11 +23,21 @@ public class CornerNode
     public XYZ TargetCenter { get; set; }
     public double RotationAngle { get; set; }
     public Dictionary<ElementId, double> WallCutLengths { get; set; } = new Dictionary<ElementId, double>();
+    
+    public enum NodeType
+    {
+        End,
+        L,
+        T,
+        Cross,
+        Unknown
+    }
+    public NodeType Type { get; set; }
 }
 
 public static class CornerNodeSolver
 {
-    public static List<CornerNode> BuildTopologicalNodes(Document doc, List<Wall> selectedWalls)
+    public static List<CornerNode> BuildTopologicalNodes(Document doc, List<Wall> selectedWalls, Dictionary<string, WallEndState> endStates)
     {
         var nodeDict = new Dictionary<string, CornerNode>();
 
@@ -38,18 +49,31 @@ public static class CornerNodeSolver
             XYZ p0 = lc.Curve.GetEndPoint(0);
             XYZ p1 = lc.Curve.GetEndPoint(1);
 
-            AddWallToDict(nodeDict, p0, wall, true);
-            AddWallToDict(nodeDict, p1, wall, false);
+            XYZ p0Virtual = GetVirtualPoint(wall.Id, true, endStates, p0);
+            XYZ p1Virtual = GetVirtualPoint(wall.Id, false, endStates, p1);
+
+            AddWallToDict(nodeDict, p0Virtual, wall, true);
+            AddWallToDict(nodeDict, p1Virtual, wall, false);
             
             // Detectar muros conectados no seleccionados
-            AddJoinedWalls(nodeDict, p0, lc, 0, true);
-            AddJoinedWalls(nodeDict, p1, lc, 1, false);
+            AddJoinedWalls(nodeDict, p0Virtual, lc, 0, true, endStates);
+            AddJoinedWalls(nodeDict, p1Virtual, lc, 1, false, endStates);
         }
 
         return nodeDict.Values.ToList();
     }
 
-    private static void AddJoinedWalls(Dictionary<string, CornerNode> dict, XYZ pt, LocationCurve lc, int end, bool isStart)
+    private static XYZ GetVirtualPoint(ElementId wallId, bool isStart, Dictionary<string, WallEndState> endStates, XYZ defaultPt)
+    {
+        string key = $"{wallId}_{(isStart ? "Start" : "End")}";
+        if (endStates != null && endStates.TryGetValue(key, out var state))
+        {
+            return state.VirtualCornerPoint;
+        }
+        return defaultPt;
+    }
+
+    private static void AddJoinedWalls(Dictionary<string, CornerNode> dict, XYZ ptVirtual, LocationCurve lc, int end, bool isStart, Dictionary<string, WallEndState> endStates)
     {
         ElementArray joined = lc.get_ElementsAtJoin(end);
         if (joined != null)
@@ -62,17 +86,20 @@ public static class CornerNodeSolver
                     LocationCurve lcJw = jw.Location as LocationCurve;
                     if (lcJw != null)
                     {
-                        double dist0 = lcJw.Curve.GetEndPoint(0).DistanceTo(pt);
-                        double dist1 = lcJw.Curve.GetEndPoint(1).DistanceTo(pt);
+                        double dist0 = lcJw.Curve.GetEndPoint(0).DistanceTo(ptVirtual);
+                        double dist1 = lcJw.Curve.GetEndPoint(1).DistanceTo(ptVirtual);
+                        bool isContinuous = dist0 > 0.5 && dist1 > 0.5; // Si ambos extremos están lejos del nodo, es continuo
                         bool jwIsStart = dist0 < dist1;
-                        AddWallToDict(dict, pt, jw, jwIsStart);
+                        
+                        // We use the virtual point of the main wall to group them
+                        AddWallToDict(dict, ptVirtual, jw, jwIsStart, isContinuous);
                     }
                 }
             }
         }
     }
 
-    private static void AddWallToDict(Dictionary<string, CornerNode> dict, XYZ pt, Wall wall, bool isStart)
+    private static void AddWallToDict(Dictionary<string, CornerNode> dict, XYZ pt, Wall wall, bool isStart, bool isContinuous = false)
     {
         string key = $"{Math.Round(pt.X, 3)}_{Math.Round(pt.Y, 3)}";
         if (!dict.ContainsKey(key))
@@ -92,14 +119,15 @@ public static class CornerNodeSolver
         { 
             Wall = wall, 
             IsStart = isStart,
-            InwardDir = inwardDir
+            InwardDir = inwardDir,
+            IsContinuous = isContinuous
         });
     }
 
     public static void SolveNodeGeometry(CornerNode node, FamilySymbol columnType, double baseElevation)
     {
-        // 1. Determinar el muro principal (el más grueso o el más largo en caso de empate)
-        node.PrimaryWall = node.ConnectedWalls.OrderByDescending(w => w.Thickness).ThenByDescending(w => (w.Wall.Location as LocationCurve).Curve.Length).First();
+        // 1. Analizar la topología y definir el muro principal
+        NodeTopologyAnalyzer.AnalyzeNodeTopology(node);
         
         double w = 0.30 / 0.3048; 
         double colTransversal = 0; // Espesor transversal real de la columneta
@@ -166,12 +194,18 @@ public static class CornerNodeSolver
         // 5. Calcular los recortes para cada muro basándonos en la intersección con el BoundingBox
         foreach (var nw in node.ConnectedWalls)
         {
+            if (nw.IsContinuous)
+            {
+                node.WallCutLengths[nw.Wall.Id] = 0.0;
+                continue;
+            }
+
             double dotX = nw.InwardDir.DotProduct(localX);
             double dotY = nw.InwardDir.DotProduct(localY);
             
             double cutLength = 0;
 
-            if (dotX > 0.9) // Muro principal
+            if (dotX > 0.9) // Muro principal (si no fuera continuo)
             {
                 cutLength = xMax; 
             }

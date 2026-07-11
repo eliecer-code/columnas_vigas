@@ -44,6 +44,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private bool _generateColumns = true;
+
+    [ObservableProperty]
+    private bool _generateTopBeams = true;
+
+    [ObservableProperty]
+    private bool _generateBottomBeams = true;
+
     public MainViewModel(
         IRevitDataExtractionService dataExtractionService,
         IRevitSelectionService selectionService,
@@ -140,10 +149,32 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        if (SelectedColumnType == null || SelectedFramingType == null)
+        if (!GenerateColumns && !GenerateTopBeams && !GenerateBottomBeams)
         {
             MessageBox.Show(
-                "Debes seleccionar tipos válidos.",
+                "Seleccione al menos un elemento para generar.",
+                "Advertencia",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning
+            );
+            return;
+        }
+
+        if (GenerateColumns && SelectedColumnType == null)
+        {
+            MessageBox.Show(
+                "Debes seleccionar un tipo de columneta para generar columnetas.",
+                "Advertencia",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning
+            );
+            return;
+        }
+
+        if ((GenerateTopBeams || GenerateBottomBeams) && SelectedFramingType == null)
+        {
+            MessageBox.Show(
+                "Debes seleccionar un tipo de vigueta para generar viguetas.",
                 "Advertencia",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning
@@ -157,11 +188,19 @@ public partial class MainViewModel : ObservableObject
         {
             try
             {
+                var options = new GenerationOptions
+                {
+                    GenerateColumns = this.GenerateColumns,
+                    GenerateTopBeams = this.GenerateTopBeams,
+                    GenerateBottomBeams = this.GenerateBottomBeams
+                };
+
                 _generationService.GenerateElements(
                     app,
                     SelectedWalls.ToList(),
                     SelectedColumnType.Id,
-                    SelectedFramingType.Id
+                    SelectedFramingType.Id,
+                    options
                 );
 
                 _dispatcher.Invoke(() =>

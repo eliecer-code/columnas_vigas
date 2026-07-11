@@ -10,5 +10,6 @@ public interface IElementGenerationService
         UIApplication uiapp,
         List<WallDataModel> selectedWalls,
         long columnTypeId,
-        long framingTypeId);
+        long framingTypeId,
+        GenerationOptions genOptions);
 }
