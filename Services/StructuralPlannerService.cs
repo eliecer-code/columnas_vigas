@@ -286,9 +286,13 @@ public static class StructuralPlannerService
                 var allCols = new List<FamilyInstance>(existingCols);
                 allCols.AddRange(createdColumns);
                 
+                // Devuelve el extremo EXTERIOR de la columneta sobre el eje del muro.
+                // Para el inicio de vigueta (isStart=true): la cara exterior está en -dir (opuesta al sentido del muro).
+                // Para el fin de vigueta (isStart=false): la cara exterior está en +dir (misma dirección del muro).
                 XYZ GetExactFacePoint(XYZ pt, XYZ dir, bool isStart)
                 {
-                    XYZ searchPt = isStart ? pt - dir * 0.02 : pt + dir * 0.02; 
+                    // searchPt: ligeramente hacia adentro del segmento libre para detectar la columneta contigua.
+                    XYZ searchPt = isStart ? pt - dir * 0.02 : pt + dir * 0.02;
                     foreach (var col in allCols)
                     {
                         var bb = col.get_BoundingBox(null);
@@ -296,9 +300,14 @@ public static class StructuralPlannerService
                             searchPt.X >= bb.Min.X - 0.1 && searchPt.X <= bb.Max.X + 0.1 &&
                             searchPt.Y >= bb.Min.Y - 0.1 && searchPt.Y <= bb.Max.Y + 0.1)
                         {
-                            XYZ extremePt = RealGeometryHelper.GetExtremePoint(col, doc, isStart ? dir : -dir);
+                            // Cara exterior: el extremo más alejado del segmento libre.
+                            // Para isStart=true → cara en -dir (exterior izquierda).
+                            // Para isStart=false → cara en +dir (exterior derecha).
+                            XYZ exteriorDir = isStart ? -dir : dir;
+                            XYZ extremePt = RealGeometryHelper.GetExtremePoint(col, doc, exteriorDir);
                             if (extremePt != null)
                             {
+                                // Proyectar sobre el eje del muro para mantener alineación exacta.
                                 IntersectionResult res = Line.CreateUnbound(pt, dir).Project(extremePt);
                                 if (res != null) return res.XYZPoint;
                             }
