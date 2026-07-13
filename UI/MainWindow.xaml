@@ -10,6 +10,7 @@
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <utils:InverseBooleanConverter x:Key="InverseBooleanConverter" xmlns:utils="clr-namespace:CQIng.Revit.ColumnasVigasMuros.UI.Utils" />
+        <utils:BoolToOpacityConverter x:Key="BoolToOpacityConverter" xmlns:utils="clr-namespace:CQIng.Revit.ColumnasVigasMuros.UI.Utils" />
     </Window.Resources>
     <Grid Margin="10">
         <Grid.ColumnDefinitions>
@@ -46,10 +47,32 @@
                       Margin="0,0,0,15" Height="25"/>
 
             <TextBlock Text="Elementos a generar:" FontWeight="Bold" Margin="0,0,0,5"/>
-            <StackPanel Margin="0,0,0,25">
+            <StackPanel Margin="0,0,0,10">
                 <CheckBox Content="Generar Columnetas" IsChecked="{Binding GenerateColumns}" Margin="0,0,0,5"/>
                 <CheckBox Content="Generar Viguetas Superiores" IsChecked="{Binding GenerateTopBeams}" Margin="0,0,0,5"/>
                 <CheckBox Content="Generar Viguetas Inferiores" IsChecked="{Binding GenerateBottomBeams}"/>
+            </StackPanel>
+
+            <!-- Posición de la Vigueta Superior -->
+            <TextBlock Text="Posición de la Vigueta Superior:" FontWeight="Bold" Margin="0,0,0,5"/>
+            <StackPanel Margin="0,0,0,20">
+                <CheckBox x:Name="chkTopBeamOffset"
+                          Content="Aplicar desfase vertical"
+                          IsChecked="{Binding UseTopBeamOffset}"
+                          Margin="0,0,0,5"/>
+                <StackPanel Orientation="Horizontal"
+                            IsEnabled="{Binding UseTopBeamOffset}"
+                            Opacity="{Binding UseTopBeamOffset, Converter={StaticResource BoolToOpacityConverter}}">
+                    <TextBlock Text="Desfase desde la parte superior del muro (m):"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"
+                               Foreground="Gray"/>
+                    <TextBox Width="70"
+                             Height="25"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding TopBeamVerticalOffset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                             IsEnabled="{Binding UseTopBeamOffset}"/>
+                </StackPanel>
             </StackPanel>
 
             <Button Content="Generar Columnetas y Viguetas" 

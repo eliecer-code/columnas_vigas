@@ -29,7 +29,8 @@ public static class StructuralPlannerService
         Document doc,
         List<Wall> processedWalls,
         FamilySymbol baseColumnType,
-        FamilySymbol baseFramingType)
+        FamilySymbol baseFramingType,
+        GenerationOptions genOptions = null)
     {
         var plan = new StructuralPlan();
         LogStep("Iniciando fase de planificación en SubTransaction.");
@@ -332,18 +333,27 @@ public static class StructuralPlannerService
                         : wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).AsDouble() + wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM).AsDouble();
 
                     // VIGUETAS SUPERIORES (Por segmentos libres)
+                    // El calculador devuelve:
+                    //   topAnchorZ   → coordenada Z del StartPoint (anclaje al nivel, sin zOffset)
+                    //   topZOffset   → Z_OFFSET_VALUE que aplica el ExecutionService
+                    //   topLevel2    → nivel de referencia para NewFamilyInstance
+                    //   topRealZ     → elevación real de la vigueta (para detección de duplicados)
+                    var (topAnchorZ, topZOffset, topLevel2, topRealZ) =
+                        TopBeamElevationCalculator.Calculate(zMax, zMin, refLevel, zOffset, baseLevel, genOptions ?? new());
+
                     foreach (var segment in segments)
                     {
                         if (segment.StartPoint.DistanceTo(segment.EndPoint) < 0.1) continue;
 
-                        if (!HasDuplicateBeam(segment.StartPoint, segment.EndPoint, refLevel.Elevation))
+                        // HasDuplicateBeam compara contra la posición Z real de la vigueta existente
+                        if (!HasDuplicateBeam(segment.StartPoint, segment.EndPoint, topRealZ))
                         {
                             plan.TopBeams.Add(new PlannedBeam
                             {
-                                StartPoint = new XYZ(segment.StartPoint.X, segment.StartPoint.Y, refLevel.Elevation),
-                                EndPoint = new XYZ(segment.EndPoint.X, segment.EndPoint.Y, refLevel.Elevation),
-                                BaseLevel = refLevel,
-                                ZOffset = zOffset,
+                                StartPoint = new XYZ(segment.StartPoint.X, segment.StartPoint.Y, topAnchorZ),
+                                EndPoint = new XYZ(segment.EndPoint.X, segment.EndPoint.Y, topAnchorZ),
+                                BaseLevel = topLevel2,
+                                ZOffset = topZOffset,
                                 FramingType = baseFramingType,
                                 ParentWall = wall
                             });

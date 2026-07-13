@@ -148,7 +148,9 @@ public class ElementGenerationService : IElementGenerationService
                     t.Start();
 
                     // FASE 1: PLANIFICACIÓN PURA (En SubTransaction)
-                    StructuralPlan plan = StructuralPlannerService.CreatePlan(doc, processedWalls, baseColumnType, baseFramingType);
+                    // Se pasan las genOptions para que el calculador de elevación de vigueta superior
+                    // pueda aplicar el desfase vertical configurado por el usuario.
+                    StructuralPlan plan = StructuralPlannerService.CreatePlan(doc, processedWalls, baseColumnType, baseFramingType, genOptions);
 
                     // FASE 2: EJECUCIÓN (Mutación del documento baseada en Checkboxes)
                     StructuralExecutionService.ExecutePlan(doc, plan, genOptions);

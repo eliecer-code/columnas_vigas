@@ -53,6 +53,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _generateBottomBeams = true;
 
+    [ObservableProperty]
+    private bool _useTopBeamOffset = false;
+
+    /// <summary>Desfase desde la coronación del muro, en metros. Solo activo cuando UseTopBeamOffset es true.</summary>
+    [ObservableProperty]
+    private double _topBeamVerticalOffset = 0.0;
+
     public MainViewModel(
         IRevitDataExtractionService dataExtractionService,
         IRevitSelectionService selectionService,
@@ -182,6 +189,25 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        // Validar desfase de vigueta superior
+        if (UseTopBeamOffset)
+        {
+            if (TopBeamVerticalOffset < 0)
+            {
+                MessageBox.Show(
+                    "El desfase vertical no puede ser negativo.",
+                    "Advertencia",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning
+                );
+                return;
+            }
+
+            // La validación de que el desfase no supera la altura del muro se realiza
+            // en el servicio de generación porque cada muro tiene su propia altura.
+            // Aquí solo comprobamos que el valor es un número positivo.
+        }
+
         IsBusy = true;
 
         RevitEventExecutor.Execute(app =>
@@ -192,7 +218,9 @@ public partial class MainViewModel : ObservableObject
                 {
                     GenerateColumns = this.GenerateColumns,
                     GenerateTopBeams = this.GenerateTopBeams,
-                    GenerateBottomBeams = this.GenerateBottomBeams
+                    GenerateBottomBeams = this.GenerateBottomBeams,
+                    UseTopBeamOffset = this.UseTopBeamOffset,
+                    TopBeamVerticalOffsetMeters = this.TopBeamVerticalOffset
                 };
 
                 _generationService.GenerateElements(
