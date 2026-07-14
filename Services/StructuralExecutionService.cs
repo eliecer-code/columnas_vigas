@@ -63,6 +63,10 @@ public static class StructuralExecutionService
                     ElementTransformUtils.RotateElement(doc, col.Id, axis, pCol.RotationAngle);
                     doc.Regenerate();
                 }
+
+                // Marcar el elemento generado
+                CQIngExtensibleStorageMarker.MarkElement(col, pCol.PrimaryWall.Id, "Columnetas");
+
                 createdColumns.Add(col);
             }
         }
@@ -86,6 +90,9 @@ public static class StructuralExecutionService
                 topFraming.get_Parameter(BuiltInParameter.Y_JUSTIFICATION)?.Set(1);
                 topFraming.get_Parameter(BuiltInParameter.Z_JUSTIFICATION)?.Set(0);
 
+                // Marcar el elemento generado
+                CQIngExtensibleStorageMarker.MarkElement(topFraming, pBeam.ParentWall.Id, "Viguetas superiores");
+
                 createdFramings.Add(topFraming);
             }
         }
@@ -108,6 +115,9 @@ public static class StructuralExecutionService
                 botFraming.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION)?.Set(0.0);
                 botFraming.get_Parameter(BuiltInParameter.Y_JUSTIFICATION)?.Set(1);
                 botFraming.get_Parameter(BuiltInParameter.Z_JUSTIFICATION)?.Set(0);
+
+                // Marcar el elemento generado
+                CQIngExtensibleStorageMarker.MarkElement(botFraming, pBeam.ParentWall.Id, "Viguetas inferiores");
 
                 createdFramings.Add(botFraming);
             }

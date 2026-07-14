@@ -6,7 +6,7 @@
         xmlns:helix="http://helix-toolkit.org/wpf"
         xmlns:viewmodels="clr-namespace:CQIng.Revit.ColumnasVigasMuros.UI.ViewModels"
         mc:Ignorable="d"
-        Title="Columnetas y Viguetas" Height="600" Width="800"
+        Title="Columnetas y Viguetas" Height="680" Width="800"
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <utils:InverseBooleanConverter x:Key="InverseBooleanConverter" xmlns:utils="clr-namespace:CQIng.Revit.ColumnasVigasMuros.UI.Utils" />
@@ -70,7 +70,7 @@
                     <TextBox Width="70"
                              Height="25"
                              VerticalContentAlignment="Center"
-                             Text="{Binding TopBeamVerticalOffset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                             Text="{Binding TopBeamVerticalOffset, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat=N2}"
                              IsEnabled="{Binding UseTopBeamOffset}"/>
                 </StackPanel>
             </StackPanel>

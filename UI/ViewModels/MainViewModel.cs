@@ -23,6 +23,10 @@ public partial class MainViewModel : ObservableObject
     private readonly IElementGenerationService _generationService;
     private readonly Dispatcher _dispatcher;
 
+    // Estado para regenerar la previsualización sin re-seleccionar muros
+    private List<Wall> _cachedRevitWalls = new();
+    private UIApplication _uiapp;
+
     [ObservableProperty]
     private ObservableCollection<WallDataModel> _selectedWalls = new();
 
@@ -103,29 +107,35 @@ public partial class MainViewModel : ObservableObject
             {
                 var walls = _selectionService.PromptWallSelection(app);
 
-                var newModelGroup = new Model3DGroup();
+                var wallGeomGroup = new Model3DGroup();
                 var doc = app.ActiveUIDocument.Document;
+                var revitWalls = new List<Wall>();
 
                 foreach (var wallModel in walls)
                 {
                     var wall = doc.GetElement(new ElementId(wallModel.Id)) as Wall;
                     if (wall != null)
                     {
+                        revitWalls.Add(wall);
                         var geom = GeometryHelper.GetWallGeometryModel(wall);
                         if (geom != null)
-                        {
-                            newModelGroup.Children.Add(geom);
-                        }
+                            wallGeomGroup.Children.Add(geom);
                     }
                 }
 
-                newModelGroup.Children.Add(new AmbientLight(System.Windows.Media.Colors.White));
+                wallGeomGroup.Children.Add(new AmbientLight(System.Windows.Media.Colors.White));
+
+                // Guardar referencias para la previsualización automática
+                _cachedRevitWalls = revitWalls;
+                _uiapp = app;
 
                 _dispatcher.Invoke(() =>
                 {
                     SelectedWalls = new ObservableCollection<WallDataModel>(walls);
-                    ModelGroup = newModelGroup;
                 });
+
+                // Generar previsualización inmediata tras selección
+                RefreshPreview(app);
             }
             catch (Exception ex)
             {
@@ -140,6 +150,103 @@ public partial class MainViewModel : ObservableObject
                 });
             }
         });
+    }
+
+    /// <summary>
+    /// Regenera la geometría del visor 3D combinando los muros con la previsualización estructural.
+    /// No crea ningún elemento en Revit. No inicia transacciones.
+    /// </summary>
+    private void RefreshPreview(UIApplication app = null)
+    {
+        app ??= _uiapp;
+        if (app == null || !_cachedRevitWalls.Any()) return;
+
+        var doc = app.ActiveUIDocument.Document;
+
+        // Opciones actuales del ViewModel
+        var options = new CQIng.Revit.ColumnasVigasMuros.Core.Domain.Entities.GenerationOptions
+        {
+            GenerateColumns      = this.GenerateColumns,
+            GenerateTopBeams     = this.GenerateTopBeams,
+            GenerateBottomBeams  = this.GenerateBottomBeams,
+            UseTopBeamOffset     = this.UseTopBeamOffset,
+            TopBeamVerticalOffsetMeters = this.TopBeamVerticalOffset
+        };
+
+        // Obtener los tipos de familia seleccionados (pueden ser null si aún no se eligieron)
+        FamilySymbol colType = SelectedColumnType != null
+            ? doc.GetElement(new ElementId(SelectedColumnType.Id)) as FamilySymbol
+            : null;
+        FamilySymbol framingType = SelectedFramingType != null
+            ? doc.GetElement(new ElementId(SelectedFramingType.Id)) as FamilySymbol
+            : null;
+
+        // Si no hay tipos seleccionados aún, solo mostrar los muros
+        if (colType == null || framingType == null)
+        {
+            _dispatcher.Invoke(() => ModelGroup = BuildWallsOnly(doc));
+            return;
+        }
+
+        try
+        {
+            CQIng.Revit.ColumnasVigasMuros.Core.Domain.Entities.StructuralPlan plan = null;
+
+            // StructuralPlannerService.CreatePlan requiere una SubTransaction internamente.
+            // Para iniciar una SubTransaction, DEBE haber una Transaction principal activa.
+            // Iniciamos una transacción temporal solo para planificación y luego hacemos RollBack.
+            using (Transaction t = new Transaction(doc, "Preview Temporal"))
+            {
+                t.Start();
+                plan = CQIng.Revit.ColumnasVigasMuros.Services.StructuralPlannerService.CreatePlan(
+                    doc, _cachedRevitWalls, colType, framingType, options);
+                t.RollBack(); // NUNCA confirmar, es solo vista previa
+            }
+
+            // Construir la geometría de preview
+            var previewGroup = CQIng.Revit.ColumnasVigasMuros.Core.Application.Helpers
+                .StructuralPreviewBuilder.Build(plan, options, doc);
+
+            // Combinar muros + preview en un solo Model3DGroup
+            var combined = BuildWallsOnly(doc);
+            foreach (var child in previewGroup.Children)
+                combined.Children.Add(child);
+
+            _dispatcher.Invoke(() => ModelGroup = combined);
+        }
+        catch (Exception)
+        {
+            // Si el cálculo falla (ej. desfase inválido) mostrar solo los muros sin romper la UI
+            _dispatcher.Invoke(() => ModelGroup = BuildWallsOnly(doc));
+        }
+    }
+
+    private Model3DGroup BuildWallsOnly(Document doc)
+    {
+        var g = new Model3DGroup();
+        foreach (var wall in _cachedRevitWalls)
+        {
+            var geom = GeometryHelper.GetWallGeometryModel(wall);
+            if (geom != null) g.Children.Add(geom);
+        }
+        g.Children.Add(new AmbientLight(System.Windows.Media.Colors.White));
+        return g;
+    }
+
+    // ─── Actualizaciones automáticas al cambiar opciones ─────────────────────
+
+    partial void OnGenerateColumnsChanged(bool value)     => TriggerPreviewRefresh();
+    partial void OnGenerateTopBeamsChanged(bool value)    => TriggerPreviewRefresh();
+    partial void OnGenerateBottomBeamsChanged(bool value) => TriggerPreviewRefresh();
+    partial void OnUseTopBeamOffsetChanged(bool value)    => TriggerPreviewRefresh();
+    partial void OnTopBeamVerticalOffsetChanged(double v) => TriggerPreviewRefresh();
+    partial void OnSelectedColumnTypeChanged(DropdownItem v)  => TriggerPreviewRefresh();
+    partial void OnSelectedFramingTypeChanged(DropdownItem v) => TriggerPreviewRefresh();
+
+    private void TriggerPreviewRefresh()
+    {
+        if (!_cachedRevitWalls.Any()) return;
+        RevitEventExecutor.Execute(app => RefreshPreview(app));
     }
 
     [RelayCommand]
@@ -214,6 +321,27 @@ public partial class MainViewModel : ObservableObject
         {
             try
             {
+                var doc = app.ActiveUIDocument.Document;
+                
+                // 1. VALIDACIÓN PREVIA DE DUPLICADOS (Evitar recrear en muros ya procesados)
+                var validationReport = CQIng.Revit.ColumnasVigasMuros.Core.Application.Helpers
+                    .ExistingElementsValidator.Validate(doc, SelectedWalls.ToList());
+                    
+                if (validationReport.HasExistingElements)
+                {
+                    _dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show(
+                            validationReport.FormattedMessage,
+                            "Elementos Existentes Detectados",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
+                        IsBusy = false;
+                    });
+                    return; // Cancelar ejecución sin iniciar transacciones
+                }
+
                 var options = new GenerationOptions
                 {
                     GenerateColumns = this.GenerateColumns,
