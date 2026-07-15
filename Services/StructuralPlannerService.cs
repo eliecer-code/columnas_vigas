@@ -345,13 +345,18 @@ public static class StructuralPlannerService
                     {
                         if (segment.StartPoint.DistanceTo(segment.EndPoint) < 0.1) continue;
 
+                        // Calcular los puntos exactos en la cara de las columnetas contiguas
+                        XYZ segDir = (segment.EndPoint - segment.StartPoint).Normalize();
+                        XYZ exactStart = GetExactFacePoint(segment.StartPoint, segDir, true);
+                        XYZ exactEnd = GetExactFacePoint(segment.EndPoint, segDir, false);
+
                         // HasDuplicateBeam compara contra la posición Z real de la vigueta existente
-                        if (!HasDuplicateBeam(segment.StartPoint, segment.EndPoint, topRealZ))
+                        if (!HasDuplicateBeam(exactStart, exactEnd, topRealZ))
                         {
                             plan.TopBeams.Add(new PlannedBeam
                             {
-                                StartPoint = new XYZ(segment.StartPoint.X, segment.StartPoint.Y, topAnchorZ),
-                                EndPoint = new XYZ(segment.EndPoint.X, segment.EndPoint.Y, topAnchorZ),
+                                StartPoint = new XYZ(exactStart.X, exactStart.Y, topAnchorZ),
+                                EndPoint = new XYZ(exactEnd.X, exactEnd.Y, topAnchorZ),
                                 BaseLevel = topLevel2,
                                 ZOffset = topZOffset,
                                 FramingType = baseFramingType,

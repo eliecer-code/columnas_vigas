@@ -1,4 +1,5 @@
 bin/
+bin/
 obj/
 .vs/
 *.user
@@ -7,3 +8,4 @@ obj/
 .clinerules
 Diagnostico_UI_TextBox.md
 Auditoria_PrevencionDuplicados.md
+diagnostico_ajuste_viguetas_superiores.md
