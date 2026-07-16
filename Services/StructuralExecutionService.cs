@@ -90,6 +90,9 @@ public static class StructuralExecutionService
                 topFraming.get_Parameter(BuiltInParameter.Y_JUSTIFICATION)?.Set(1);
                 topFraming.get_Parameter(BuiltInParameter.Z_JUSTIFICATION)?.Set(0);
 
+                Autodesk.Revit.DB.Structure.StructuralFramingUtils.DisallowJoinAtEnd(topFraming, 0);
+                Autodesk.Revit.DB.Structure.StructuralFramingUtils.DisallowJoinAtEnd(topFraming, 1);
+
                 // Marcar el elemento generado
                 CQIngExtensibleStorageMarker.MarkElement(topFraming, pBeam.ParentWall.Id, "Viguetas superiores");
 

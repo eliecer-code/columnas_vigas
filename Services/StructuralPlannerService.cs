@@ -316,6 +316,33 @@ public static class StructuralPlannerService
                     }
                     return pt;
                 }
+                XYZ GetExactCenterPoint(XYZ pt, XYZ dir, bool isStart)
+                {
+                    FamilyInstance closestCol = null;
+                    double minDist = 1.5; // Max search distance in feet
+
+                    foreach (var col in allCols)
+                    {
+                        var locPt = col.Location as LocationPoint;
+                        if (locPt != null)
+                        {
+                            double dist = new XYZ(locPt.Point.X, locPt.Point.Y, 0).DistanceTo(new XYZ(pt.X, pt.Y, 0));
+                            if (dist < minDist)
+                            {
+                                minDist = dist;
+                                closestCol = col;
+                            }
+                        }
+                    }
+
+                    if (closestCol != null)
+                    {
+                        var locPt = closestCol.Location as LocationPoint;
+                        IntersectionResult res = Line.CreateUnbound(pt, dir).Project(locPt.Point);
+                        if (res != null) return res.XYZPoint;
+                    }
+                    return pt;
+                }
 
                 foreach (var wall in processedWalls)
                 {
@@ -332,31 +359,25 @@ public static class StructuralPlannerService
                         ? wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET).AsDouble()
                         : wall.get_Parameter(BuiltInParameter.WALL_BASE_OFFSET).AsDouble() + wall.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM).AsDouble();
 
-                    // VIGUETAS SUPERIORES (Por segmentos libres)
-                    // El calculador devuelve:
-                    //   topAnchorZ   → coordenada Z del StartPoint (anclaje al nivel, sin zOffset)
-                    //   topZOffset   → Z_OFFSET_VALUE que aplica el ExecutionService
-                    //   topLevel2    → nivel de referencia para NewFamilyInstance
-                    //   topRealZ     → elevación real de la vigueta (para detección de duplicados)
+                    // VIGUETAS SUPERIORES (Una sola vigueta continua por muro)
                     var (topAnchorZ, topZOffset, topLevel2, topRealZ) =
                         TopBeamElevationCalculator.Calculate(zMax, zMin, refLevel, zOffset, baseLevel, genOptions ?? new());
 
-                    foreach (var segment in segments)
+                    XYZ topRawStart = segments.First().StartPoint;
+                    XYZ topRawEnd = segments.Last().EndPoint;
+                    XYZ topDir = (topRawEnd - topRawStart).Normalize();
+
+                    XYZ topContinuousStart = GetExactCenterPoint(topRawStart, topDir, true);
+                    XYZ topContinuousEnd = GetExactCenterPoint(topRawEnd, topDir, false);
+
+                    if (topContinuousStart.DistanceTo(topContinuousEnd) >= 0.1)
                     {
-                        if (segment.StartPoint.DistanceTo(segment.EndPoint) < 0.1) continue;
-
-                        // Calcular los puntos exactos en la cara de las columnetas contiguas
-                        XYZ segDir = (segment.EndPoint - segment.StartPoint).Normalize();
-                        XYZ exactStart = GetExactFacePoint(segment.StartPoint, segDir, true);
-                        XYZ exactEnd = GetExactFacePoint(segment.EndPoint, segDir, false);
-
-                        // HasDuplicateBeam compara contra la posición Z real de la vigueta existente
-                        if (!HasDuplicateBeam(exactStart, exactEnd, topRealZ))
+                        if (!HasDuplicateBeam(topContinuousStart, topContinuousEnd, topRealZ))
                         {
                             plan.TopBeams.Add(new PlannedBeam
                             {
-                                StartPoint = new XYZ(exactStart.X, exactStart.Y, topAnchorZ),
-                                EndPoint = new XYZ(exactEnd.X, exactEnd.Y, topAnchorZ),
+                                StartPoint = new XYZ(topContinuousStart.X, topContinuousStart.Y, topAnchorZ),
+                                EndPoint = new XYZ(topContinuousEnd.X, topContinuousEnd.Y, topAnchorZ),
                                 BaseLevel = topLevel2,
                                 ZOffset = topZOffset,
                                 FramingType = baseFramingType,
